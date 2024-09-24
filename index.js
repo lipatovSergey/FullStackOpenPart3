@@ -49,9 +49,20 @@ app.post('/api/persons', (request, response) => {
   })
 })
 
+app.delete('/api/persons/:id', (request, response) => {
+  console.log(request.params.id)
+  const id = request.params.id
+  Person.findByIdAndDelete(id)
+    .then((result) => {
+      response.status(204).end()
+    })
+    .catch((error) => response.status(500).json({ error: 'Error while deleting' }))
+})
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`)
 })
+
 // app.get('/info', (request, response) => {
 //   const requestTime = new Date()
 //   response.send(`
