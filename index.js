@@ -6,8 +6,17 @@ const cors = require('cors')
 const Person = require('./models/person')
 const PORT = process.env.PORT || 3001
 
-// MongoDB connection
 const url = process.env.MONGODB_URI
+
+const errorHandler = (error, request, response, next) => {
+  console.log(error.message)
+
+  if (error.name === 'CastError') {
+    return response.status(400).send({ error: 'malformed id' })
+  }
+
+  next(error)
+}
 
 mongoose
   .connect(url)
@@ -49,15 +58,39 @@ app.post('/api/persons', (request, response) => {
   })
 })
 
-app.delete('/api/persons/:id', (request, response) => {
-  console.log(request.params.id)
+app.delete('/api/persons/:id', (request, response, next) => {
   const id = request.params.id
   Person.findByIdAndDelete(id)
     .then((result) => {
-      response.status(204).end()
+      if (result) {
+        response.status(204).end()
+      } else {
+        response.status(404).json({ error: 'Person not found' })
+      }
     })
-    .catch((error) => response.status(500).json({ error: 'Error while deleting' }))
+    .catch((error) => next(error))
 })
+
+app.put('/api/persons/:id', (request, response, next) => {
+  const id = request.params.id
+  const body = request.body
+  if (!body) {
+    return response.status(400).json({ error: 'content missing' })
+  }
+
+  const person = {
+    name: body.name,
+    number: body.number,
+  }
+
+  Person.findByIdAndUpdate(id, person, { new: true })
+    .then((updatedPerson) => {
+      response.json(updatedPerson)
+    })
+    .catch((error) => next(error))
+})
+
+app.use(errorHandler)
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`)
