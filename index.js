@@ -12,7 +12,9 @@ const errorHandler = (error, request, response, next) => {
   console.log(error.message)
 
   if (error.name === 'CastError') {
-    return response.status(400).send({ error: 'malformed id' })
+    return response.status(400).json({ error: 'malformed id' })
+  } else if (error.name === 'ValidationError') {
+    response.status(400).json({ error: error.message })
   }
 
   next(error)
@@ -41,10 +43,10 @@ app.get('/api/persons', (request, response) => {
   })
 })
 
-app.post('/api/persons', (request, response) => {
+app.post('/api/persons', (request, response, next) => {
   const body = request.body
 
-  if (body === undefined) {
+  if (!body.name || !body.number) {
     return response.status(400).json({ error: 'content missing' })
   }
 
@@ -53,9 +55,12 @@ app.post('/api/persons', (request, response) => {
     number: body.number,
   })
 
-  person.save().then((addedPerson) => {
-    response.status(201).json(addedPerson)
-  })
+  person
+    .save()
+    .then((addedPerson) => {
+      response.status(201).json(addedPerson)
+    })
+    .catch((error) => next(error))
 })
 
 app.delete('/api/persons/:id', (request, response, next) => {
@@ -83,10 +88,38 @@ app.put('/api/persons/:id', (request, response, next) => {
     number: body.number,
   }
 
-  Person.findByIdAndUpdate(id, person, { new: true })
+  Person.findByIdAndUpdate(id, person, { new: true, runValidators: true, context: 'query' })
     .then((updatedPerson) => {
       response.json(updatedPerson)
     })
+    .catch((error) => next(error))
+})
+
+app.get('/api/persons/:id', (request, response, next) => {
+  const id = request.params.id
+  Person.findById(id)
+    .then((person) => {
+      console.log(person)
+      if (person) {
+        response.status(200).send(person)
+      } else {
+        response.status(404).json({ error: 'Person not found' })
+      }
+    })
+    .catch((error) => next(error))
+})
+
+app.get('/info', (request, response, next) => {
+  const requestTime = new Date()
+
+  Person.countDocuments({})
+    .then((count) =>
+      response.send(`
+    <p>Phonebook has info for ${count} people</p>
+    <br/>
+    <p>${requestTime}</p>
+    `)
+    )
     .catch((error) => next(error))
 })
 
@@ -95,58 +128,3 @@ app.use(errorHandler)
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`)
 })
-
-// app.get('/info', (request, response) => {
-//   const requestTime = new Date()
-//   response.send(`
-//     <p>Phonebook has info for ${data.length} people</p>
-//     <br/>
-//     <p>${requestTime}</p>
-//     `)
-// })
-
-// app.get('/api/persons/:id', (request, response) => {
-//   const id = request.params.id
-//   const person = data.find((person) => person.id === id)
-//   if (person) {
-//     response.status(200).json(person)
-//   } else {
-//     response.status(404).end()
-//   }
-// })
-
-// app.delete('/api/persons/:id', (request, response) => {
-//   const id = request.params.id
-//   const personToDelete = data.find((person) => person.id === id)
-//   if (personToDelete) {
-//     data = data.filter((person) => person.id !== id)
-//     response.status(204).end()
-//   } else {
-//     response.status(404).end()
-//   }
-// })
-
-// app.post('/api/persons', (request, response) => {
-//   const personData = request.body
-
-//   if (!personData.name || !personData.number) {
-//     return response.status(400).json({ error: 'Name and number fields are required' })
-//   }
-
-//   const duplicate = data.find((person) => person.name === personData.name || person.number === personData.number)
-
-//   if (duplicate) {
-//     if (duplicate.name === personData.name) {
-//       return response.status(400).json({ error: 'Person with this name already exists' })
-//     }
-//     if (duplicate.number === personData.number) {
-//       return response.status(400).json({ error: 'Person with this number already exists' })
-//     }
-//   }
-
-//   const id = generateId()
-//   const newPerson = { id, ...personData }
-
-//   data = [newPerson, ...data]
-//   response.json(newPerson)
-// })
