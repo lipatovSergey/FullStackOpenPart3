@@ -25,7 +25,7 @@ mongoose
   .then(() => {
     console.log('connected to mongoDb')
   })
-  .catch((error) => console.log('error connecting to MongoDB'))
+  .catch(() => console.log('error connecting to MongoDB'))
 
 morgan.token('body', (request) => {
   return request.method === 'POST' ? JSON.stringify(request.body) : ''
